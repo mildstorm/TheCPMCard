@@ -32,17 +32,17 @@ make -j$(nproc) SUBTARGET=apple2e SOURCES=src/mame/apple/apple2e.cpp REGENIE=1
 
 ## CP/M 카드 실행
 
-ALS The CP/M Card는 슬롯 4 또는 7에, 5.25인치 Disk II 컨트롤러는 슬롯 6에 장착해야 합니다. 슬롯 6의 기본 Disk II 컨트롤러를 유지하고 슬롯 4에 CP/M 카드를 지정해 `CPM2.2(56k).dsk`를 첫 번째 드라이브에 넣는 예입니다.
+ALS The CP/M Card는 슬롯 4 또는 7에, 5.25인치 Disk II 컨트롤러는 슬롯 6에 장착합니다. 아래 예에서는 기본 슬롯 6 Disk II 컨트롤러를 유지하고 CP/M 카드를 슬롯 4에 둡니다. CP/M Plus 시스템 디스크를 첫 번째 드라이브에, GSX-80 D1을 두 번째 드라이브에 연결합니다.
+
+MAME 루트 디렉터리에서 실행합니다. 이 예는 두 저장소를 같은 상위 폴더에 clone한 경우입니다.
 
 ```bash
-./apple2e.exe apple2e -sl4 cpmcard -flop1 "../TheCPMCard/CPM/CPM2.2(56k).dsk"
+./apple2e.exe apple2e -sl4 cpmcard -flop1 "../TheCPMCard/CPM/CPM.Disk1.DSK" -flop2 "../TheCPMCard/CPM/GSX-80 VERSION 1.1/GSX80D1.DSK"
 ```
-
-다른 디스크 이미지를 사용할 때는 `-flop1` 뒤의 경로를 바꾸세요. MAME 빌드 및 ROM 구성에 따라 실행 파일 이름은 달라질 수 있습니다.
 
 ## 현재 실행 화면
 
-아래 이미지는 CP/M 카드와 CP/M 2.2 디스크를 장착해 실행한 현재 화면입니다. 화면 출력이 정상적인 CP/M 프롬프트로 표시되지 않는 상태도 그대로 기록했습니다.
+아래는 위 명령으로 실행해 CP/M Plus 3.01C가 표시된 화면입니다.
 
 ![ALS The CP/M Card running in MAME](screenshots/cpm-card-boot.png)
 
