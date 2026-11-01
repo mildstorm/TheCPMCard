@@ -13,7 +13,7 @@
 
 이 변경은 MAME 커밋 `84981cc15cfc1429e48f098d80c6dd97bc82a0bc`를 기준으로 작성했습니다. 동일한 기준 소스 트리에서 적용하는 방법은 다음과 같습니다. 최신 MAME에서 패치가 적용되지 않으면 먼저 소스 변경을 확인하고 필요한 부분을 조정하세요.
 
-MSYS2의 **UCRT64** 셸에서 MAME와 이 저장소를 같은 상위 폴더에 내려받습니다.
+MAME 빌드에 필요한 도구가 설치된 셸에서 MAME와 이 저장소를 같은 상위 폴더에 내려받습니다.
 
 ```bash
 git clone https://github.com/mamedev/mame.git
@@ -29,7 +29,7 @@ MAME 루트에서 Apple II 계열만 빌드합니다.
 make -j$(nproc) SUBTARGET=apple2e SOURCES=src/mame/apple/apple2e.cpp REGENIE=1
 ```
 
-MAME의 Windows 빌드는 MSYS2와 MinGW/UCRT 도구를 사용합니다. 필요한 패키지와 일반 빌드 옵션은 [MAME 컴파일 안내](https://docs.mamedev.org/initialsetup/compilingmame.html)를 참고하세요.
+필요한 컴파일러와 빌드 도구, 운영체제별 설정은 [MAME 컴파일 안내](https://docs.mamedev.org/initialsetup/compilingmame.html)를 참고하세요.
 
 ## ALS CP/M Card 실행
 
