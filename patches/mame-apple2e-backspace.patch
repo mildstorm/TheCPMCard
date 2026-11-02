@@ -1,0 +1,18 @@
+diff --git a/src/mame/apple/apple2e.cpp b/src/mame/apple/apple2e.cpp
+index 661ffd34456..a22cbfd9b3a 100644
+--- a/src/mame/apple/apple2e.cpp
++++ b/src/mame/apple/apple2e.cpp
+@@ -3716,6 +3716,13 @@ void apple2e_state::ay3600_data_ready_w(int state)
+ 		}
+ 
+ 		m_transchar = decode[trans];
++
++		// The Delete key is wired to the Apple IIe's backspace key position.
++		// The keyboard ROM returns DEL (0x7f), but the input port declares this
++		// key as Backspace (0x08), which CP/M and other software expect.
++		if (((m_lastchar & ~0x0c0) == 0x10c) && (m_transchar == 0x7f))
++			m_transchar = 0x08;
++
+ 		m_strobe = 0x80;
+ 
+ 		//printf("new char = %04x (%02x)\n", m_lastchar, m_transchar);

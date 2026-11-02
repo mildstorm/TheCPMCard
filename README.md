@@ -20,7 +20,10 @@ git clone https://github.com/mildstorm/TheCPMCard.git
 cd mame
 git checkout 84981cc15cfc1429e48f098d80c6dd97bc82a0bc
 git apply ../TheCPMCard/patches/mame-cpmcard.patch
+git apply ../TheCPMCard/patches/mame-apple2e-backspace.patch
 ```
+
+The second patch maps the Apple IIe Delete key (the host Backspace key) to ASCII Backspace (`0x08`) so CP/M command-line editing works correctly.
 
 MAME 루트에서 Apple II 계열을 빌드합니다.
 
@@ -37,8 +40,14 @@ ALS The CP/M Card는 슬롯 4 또는 7에, 5.25인치 Disk II 컨트롤러는 �
 MAME 루트 디렉터리에서 실행합니다. 이 예는 두 저장소를 같은 상위 폴더에 clone한 경우입니다.
 
 ```bash
-./apple2e.exe apple2e -sl4 cpmcard -flop1 "../TheCPMCard/CPM/CPM.Disk1.DSK" -flop2 "../TheCPMCard/CPM/GSX-80 VERSION 1.1/GSX80D1.DSK"
+./apple2e.exe apple2e -window -nomaximize -sl4 cpmcard \
+  -flop1 "../TheCPMCard/CPM/CPM.Disk1.DSK" \
+  -flop2 "../TheCPMCard/CPM/GSX-80 VERSION 1.1/GSX80D1.DSK"
 ```
+
+MAME defaults to full-screen mode. `-window -nomaximize` opens the emulator in a smaller window; resize it by dragging a window edge if needed.
+
+At the startup menu, press `4` to reach the `A>` prompt. The host Backspace key removes the previous character there.
 
 ## 현재 실행 화면
 
