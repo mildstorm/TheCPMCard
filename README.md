@@ -1,5 +1,7 @@
 # ALS The CP/M Card for MAME
 
+[한국어](README.md) | [English](README.en.md)
+
 이 저장소는 ALS The CP/M Card를 MAME의 Apple II 버스에 추가하는 변경 사항과 CP/M 디스크 이미지 및 참고 문서를 제공합니다. MAME 전체 소스는 포함하지 않습니다.
 
 ## 구성
@@ -7,6 +9,7 @@
 - `src/devices/bus/a2bus/a2cpmcard.cpp`, `a2cpmcard.h`: 6 MHz Z80B, 카드 RAM, Apple II 메모리/DMA 연결, 뱅크 전환 및 슬롯 제어 구현
 - `src/lib/formats/fdi_dsk.cpp`: MAME의 PC-98 FDI 포맷 구현을 재사용하는 래퍼
 - `patches/mame-cpmcard.patch`: 새 파일과 MAME 빌드 목록/Apple II 슬롯 등록을 적용하는 패치
+- `patches/mame-apple2e-backspace.patch`: Apple IIe Backspace 수정 패치
 - `CPM/`: CP/M 디스크 이미지와 카드 참고 문서
 - `screenshots/cpm-card-boot.png`: CP/M 카드 장착 상태의 현재 실행 화면
 
@@ -23,7 +26,7 @@ git apply ../TheCPMCard/patches/mame-cpmcard.patch
 git apply ../TheCPMCard/patches/mame-apple2e-backspace.patch
 ```
 
-The second patch maps the Apple IIe Delete key (the host Backspace key) to ASCII Backspace (`0x08`) so CP/M command-line editing works correctly.
+두 번째 패치는 Apple IIe의 Delete 키(호스트 Backspace 키)를 ASCII Backspace(`0x08`)로 매핑해 CP/M 명령행 편집이 동작하도록 합니다.
 
 MAME 루트에서 Apple II 계열을 빌드합니다.
 
@@ -45,9 +48,9 @@ MAME 루트 디렉터리에서 실행합니다. 이 예는 두 저장소를 같�
   -flop2 "../TheCPMCard/CPM/GSX-80 VERSION 1.1/GSX80D1.DSK"
 ```
 
-MAME defaults to full-screen mode. `-window -nomaximize` opens the emulator in a smaller window; resize it by dragging a window edge if needed.
+MAME는 기본적으로 전체 화면으로 실행됩니다. `-window -nomaximize`를 사용하면 작은 창으로 열리며, 창 테두리를 드래그해 크기를 조절할 수 있습니다.
 
-At the startup menu, press `4` to reach the `A>` prompt. The host Backspace key removes the previous character there.
+시작 메뉴에서 `4`를 눌러 `A>` 프롬프트로 이동합니다. 호스트 Backspace 키를 누르면 앞 글자가 지워집니다.
 
 ## 현재 실행 화면
 
