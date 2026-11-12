@@ -12,6 +12,7 @@ This repository provides the changes needed to add the ALS The CP/M Card to MAME
 - `patches/mame-apple2e-backspace.patch`: fixes Apple IIe Backspace input
 - `CPM/`: CP/M disk images and card reference documents
 - `screenshots/cpm-card-boot.png`: a complete CP/M startup screen with the card installed
+- `photos/`: photos of a real card (component and solder side scans plus close-ups)
 
 ## Apply the patches and build MAME
 
@@ -71,6 +72,8 @@ The emulation follows photos of a real board (PCB "DIGITAL RESEARCH / Advanced L
 | U6 74LS74 | M1 clock stretch (DRAM timing) |
 | U27 74LS74 | Bank latch + 62 Hz tick flip-flop |
 | U1 4020 | Apple Φ1 / 2^14 ≈ 62 Hz real-time-clock tick |
+
+Component side: [photos/Scan_20261112_233251.jpg](photos/Scan_20261112_233251.jpg), solder side: [photos/Scan_20261112_233343.jpg](photos/Scan_20261112_233343.jpg)
 
 The card has **no firmware ROM**; everything is loaded from disk by the 6502. The only programmable part is the U26 PROM, which has not been dumped yet.
 

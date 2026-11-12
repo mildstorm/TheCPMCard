@@ -12,6 +12,7 @@
 - `patches/mame-apple2e-backspace.patch`: Apple IIe Backspace 수정 패치
 - `CPM/`: CP/M 디스크 이미지와 카드 참고 문서
 - `screenshots/cpm-card-boot.png`: CP/M 카드 장착 상태의 현재 실행 화면
+- `photos/`: 실제 카드 사진(부품면·납땜면 스캔과 부분 확대 사진)
 
 ## MAME에 적용하고 빌드
 
@@ -71,6 +72,8 @@ MAME는 기본적으로 전체 화면으로 실행됩니다. `-window -nomaximiz
 | U6 74LS74 | M1 클럭 연장 (DRAM 타이밍) |
 | U27 74LS74 | 뱅크 래치 + 62 Hz 틱 플립플롭 |
 | U1 4020 | Apple Φ1 / 2^14 ≈ 62 Hz 실시간 클럭 틱 |
+
+부품면: [photos/Scan_20261112_233251.jpg](photos/Scan_20261112_233251.jpg), 납땜면: [photos/Scan_20261112_233343.jpg](photos/Scan_20261112_233343.jpg)
 
 카드에는 **펌웨어 ROM이 없습니다**. 모든 코드는 6502가 디스크에서 읽어 옵니다. 프로그램된 부품은 U26 PROM 하나이며 아직 덤프되지 않았습니다.
 
