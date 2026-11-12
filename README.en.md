@@ -2,6 +2,11 @@
 
 [한국어](README.md) | [English](README.en.md)
 
+<p align="center">
+  <img src="photos/Scan_20261112_233251.jpg" alt="Advanced Logic Systems The CP/M Card (Apple II slot card, Z80B)" width="420"><br>
+  <em>Advanced Logic Systems "The CP/M Card" — Z80B 6 MHz + 64K CP/M card for the Apple II (PCB 08-83)</em>
+</p>
+
 This repository provides the changes needed to add the ALS The CP/M Card to MAME and to AppleWin, along with CP/M disk images and reference documents. The two ports are independent and live in separate folders. Neither emulator's full source tree is included.
 
 ## Folder layout

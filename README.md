@@ -2,6 +2,11 @@
 
 [한국어](README.md) | [English](README.en.md)
 
+<p align="center">
+  <img src="photos/Scan_20261112_233251.jpg" alt="Advanced Logic Systems The CP/M Card (Apple II 슬롯 카드, Z80B)" width="420"><br>
+  <em>Advanced Logic Systems "The CP/M Card" — Apple II용 Z80B 6 MHz + 64K CP/M 카드 (PCB 08-83)</em>
+</p>
+
 이 저장소는 ALS The CP/M Card를 MAME와 AppleWin에 추가하는 변경 사항, CP/M 디스크 이미지 및 참고 문서를 제공합니다. 두 포팅은 서로 독립적이며 폴더로 나뉘어 있습니다. 각 에뮬레이터의 전체 소스는 포함하지 않습니다.
 
 ## 폴더 구성
