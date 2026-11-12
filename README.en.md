@@ -127,7 +127,7 @@ Found by disassembling the CP/M Plus 3.01C boot disk (`CPM.Disk1.DSK`). Another 
 What follows from this:
 
 - **No SoftCard alongside**: Microsoft CP/M finds its SoftCard the same way (a write to each slot's `$Cn00`), so each CP/M wakes the other card. With both cards fitted in MAME, Microsoft CP/M hangs.
-- **The Z80 must start at `$0000`**: a Z80 that leaves reset anywhere else (for example taking a stale pending NMI to `$0066`) skips step 3. It then hands the bus to the default slot 4 (`$C400`) and hangs. MAME's Z80 clears a pending NMI on reset, so this cannot happen here. When this card was ported to the STM32F769I-DISCO board emulator ([mildstorm/STM32F769I-DISCO](https://github.com/mildstorm/STM32F769I-DISCO), `applem-core/src/core/cards/cpmcard/`), that Z80 core did not clear it, and about one card switch in two hung this way (fixed there).
+- **The Z80 must start at `$0000`**: a Z80 that leaves reset anywhere else (for example taking a stale pending NMI to `$0066`) skips step 3. It then hands the bus to the default slot 4 (`$C400`) and hangs. MAME's Z80 clears a pending NMI on reset, so this cannot happen here. When porting to another Z80 core, check that its reset clears a pending NMI.
 - **The 6502 must stop right after its `$Cn00` write**: one more instruction decrements `$08FF`, and the Z80 hands the bus to the wrong slot.
 
 ## Disk images and reference documents
