@@ -1,8 +1,8 @@
-# ALS The CP/M Card for MAME
+# ALS The CP/M Card for MAME and AppleWin
 
 [한국어](README.md) | [English](README.en.md)
 
-This repository provides the changes needed to add the ALS The CP/M Card to MAME's Apple II bus, along with CP/M disk images and reference documents. It does not include the full MAME source tree.
+This repository provides the changes needed to add the ALS The CP/M Card to MAME's Apple II bus and to AppleWin, along with CP/M disk images and reference documents. The two ports are independent (MAME: `src/`, `patches/`; AppleWin: `applewin/`). Neither emulator's full source tree is included.
 
 ## Contents
 
@@ -13,6 +13,7 @@ This repository provides the changes needed to add the ALS The CP/M Card to MAME
 - `CPM/`: CP/M disk images and card reference documents
 - `screenshots/cpm-card-boot.png`: a complete CP/M startup screen with the card installed
 - `photos/`: photos of a real card (component and solder side scans plus close-ups)
+- `applewin/applewin-cpmcard.patch`, `applewin/source/ALSCPMCard.cpp` and `ALSCPMCard.h`: the AppleWin port (see "Apply to AppleWin and build")
 
 ## Apply the patches and build MAME
 
@@ -37,7 +38,35 @@ make -j$(nproc) SUBTARGET=apple2e SOURCES=src/mame/apple/apple2e.cpp REGENIE=1
 
 See the [MAME compilation guide](https://docs.mamedev.org/initialsetup/compilingmame.html) for platform-specific prerequisites and build instructions.
 
-## Run CP/M
+## Apply to AppleWin and build
+
+Based on AppleWin commit `4a43bcdb` (upstream master). The patch carries the new `source/ALSCPMCard.{h,cpp}` and the card registration, command line, VS project and help changes. `applewin/source/` holds a copy of the same card sources.
+
+```bash
+git clone https://github.com/AppleWin/AppleWin.git
+cd AppleWin
+git checkout 4a43bcdb
+git am ../TheCPMCard/applewin/applewin-cpmcard.patch
+```
+
+Build `AppleWin-VS2026.vcxproj` as Release/Win32 with Visual Studio 2026. Without the VS2022 build tools (v143), override the toolset so the library sub-projects build too:
+
+```bash
+MSBuild AppleWin-VS2026.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v145
+```
+
+To run, choose "ALS CP/M Card" in a slot in the configuration dialog, or use the command line. At the startup menu press `4` for the `A>` prompt.
+
+```bash
+Release\AppleWin.exe -s5 cpmcard -d1 "..\TheCPMCard\CPM\CPM.Disk1.DSK"
+```
+
+- It cannot be fitted together with a Microsoft Z-80 SoftCard (`-sN z80` or `-sN softcard`): one Z80 card at a time.
+- Implementation: AppleWin's single Z80 (the VICE core) gains a board hook (`Z80Board`). Through it the card supplies the memory, I/O, the clock (6 MHz in bank 1 with the M1 stretch, 3 MHz in bank 0) and a level `/INT` (IM 0/1/2). Without a board the SoftCard behaves as before.
+- AppleWin runs one CPU at a time, so the Z80 does not run on from its own RAM while the 6502 has the bus. CP/M Plus 3.01C always hands the bus over from Apple memory, so the result is the same.
+- Verified: CP/M Plus 3.01C boots, and `DIR` and `DATE` (running clock) work. Microsoft CP/M 2.20B on the SoftCard is unchanged.
+
+## Run CP/M (MAME)
 
 Install the ALS CP/M card in any free slot and a 5.25-inch Disk II controller in slot 6. The boot code finds the card's slot itself; booting was verified with the card in slots 1, 4, 5 and 7. **Do not fit a Microsoft Z-80 SoftCard at the same time** (see "Boot process" below). The command below keeps the default slot 6 Disk II controller, puts the CP/M card in slot 4, and mounts the CP/M Plus system disk and GSX-80 D1 disk in the first two drives.
 

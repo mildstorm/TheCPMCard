@@ -1,0 +1,812 @@
+From 60a4d92c069ccf02b44db896d3609d3ab443fed0 Mon Sep 17 00:00:00 2001
+From: mildstorm <mildstorm@gmail.com>
+Date: Fri, 13 Nov 2026 01:58:07 +0900
+Subject: [PATCH] Add the ALS CP/M Card (Advanced Logic Systems "The CP/M
+ Card")
+
+A 6 MHz Z80B with 64K of its own, the card CP/M Plus 3.01 was sold with,
+modelled from its schematic and board photos
+(https://github.com/mildstorm/TheCPMCard, which also has the disks).
+
+- ALSCPMCard: $Cnxx write toggles the bus (as the SoftCard), bank latch on
+  any Z80 OUT, U26 page map (Z80 + $9000, $Cxxx/$Fxxx swapped) in bank 0,
+  card RAM in bank 1 and at $F000-$FFFF, IN returns D0 = /IRQ, 62 Hz tick
+  on /INT acknowledged with $F7 (RST 30h), snapshot with RAM and registers
+- Z80VICE: a Z80Board hook for memory, I/O, clock and a level /INT
+  (IM 0/1/2, EI delay, HALT); without one the SoftCard runs as before.
+  6 MHz in bank 1 with the M1 stretch, 3 MHz in bank 0.
+- Slot option "ALS CP/M Card"; command line -sN cpmcard, and -sN z80 or
+  softcard for the SoftCard. Only one Z80 card at a time.
+
+Tested: CP/M Plus 3.01C boots, DIR and DATE (running clock) work;
+Microsoft CP/M 2.20B on the SoftCard unchanged.
+---
+ AppleWin-VS2022.vcxproj         |   2 +
+ AppleWin-VS2022.vcxproj.filters |   6 +
+ AppleWin-VS2026.vcxproj         |   2 +
+ AppleWin-VS2026.vcxproj.filters |   6 +
+ help/CommandLine.html           |   6 +
+ source/ALSCPMCard.cpp           | 241 ++++++++++++++++++++++++++++++++
+ source/ALSCPMCard.h             |  47 +++++++
+ source/Card.cpp                 |   5 +
+ source/Card.h                   |   1 +
+ source/CardManager.cpp          |  15 +-
+ source/CardManager.h            |   4 +-
+ source/CmdLine.cpp              |  10 ++
+ source/Z80VICE/z80.cpp          | 117 ++++++++++++++--
+ source/Z80VICE/z80.h            |  21 +++
+ 14 files changed, 473 insertions(+), 10 deletions(-)
+ create mode 100644 source/ALSCPMCard.cpp
+ create mode 100644 source/ALSCPMCard.h
+
+diff --git a/AppleWin-VS2022.vcxproj b/AppleWin-VS2022.vcxproj
+index 0b8242df..a0d4667d 100644
+--- a/AppleWin-VS2022.vcxproj
++++ b/AppleWin-VS2022.vcxproj
+@@ -148,6 +148,7 @@
+     <ClInclude Include="source\Windows\Win32Frame.h" />
+     <ClInclude Include="source\YamlHelper.h" />
+     <ClInclude Include="source\z80emu.h" />
++    <ClInclude Include="source\ALSCPMCard.h" />
+     <ClInclude Include="source\Z80VICE\daa.h" />
+     <ClInclude Include="source\Z80VICE\z80.h" />
+     <ClInclude Include="source\Z80VICE\z80mem.h" />
+@@ -278,6 +279,7 @@
+     <ClCompile Include="source\Windows\WinFrame.cpp" />
+     <ClCompile Include="source\YamlHelper.cpp" />
+     <ClCompile Include="source\z80emu.cpp" />
++    <ClCompile Include="source\ALSCPMCard.cpp" />
+     <ClCompile Include="source\Z80VICE\daa.cpp">
+       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+diff --git a/AppleWin-VS2022.vcxproj.filters b/AppleWin-VS2022.vcxproj.filters
+index 15796760..95897e8a 100644
+--- a/AppleWin-VS2022.vcxproj.filters
++++ b/AppleWin-VS2022.vcxproj.filters
+@@ -160,6 +160,9 @@
+     <ClCompile Include="source\z80emu.cpp">
+       <Filter>Source Files\Emulator</Filter>
+     </ClCompile>
++    <ClCompile Include="source\ALSCPMCard.cpp">
++      <Filter>Source Files\Emulator</Filter>
++    </ClCompile>
+     <ClCompile Include="source\Debugger\Util_MemoryTextFile.cpp">
+       <Filter>Source Files\Debugger</Filter>
+     </ClCompile>
+@@ -498,6 +501,9 @@
+     <ClInclude Include="source\z80emu.h">
+       <Filter>Source Files\Emulator</Filter>
+     </ClInclude>
++    <ClInclude Include="source\ALSCPMCard.h">
++      <Filter>Source Files\Emulator</Filter>
++    </ClInclude>
+     <ClInclude Include="source\Debugger\Util_MemoryTextFile.h">
+       <Filter>Source Files\Debugger</Filter>
+     </ClInclude>
+diff --git a/AppleWin-VS2026.vcxproj b/AppleWin-VS2026.vcxproj
+index c9a60c94..c135dd30 100644
+--- a/AppleWin-VS2026.vcxproj
++++ b/AppleWin-VS2026.vcxproj
+@@ -148,6 +148,7 @@
+     <ClInclude Include="source\Windows\Win32Frame.h" />
+     <ClInclude Include="source\YamlHelper.h" />
+     <ClInclude Include="source\z80emu.h" />
++    <ClInclude Include="source\ALSCPMCard.h" />
+     <ClInclude Include="source\Z80VICE\daa.h" />
+     <ClInclude Include="source\Z80VICE\z80.h" />
+     <ClInclude Include="source\Z80VICE\z80mem.h" />
+@@ -278,6 +279,7 @@
+     <ClCompile Include="source\Windows\WinFrame.cpp" />
+     <ClCompile Include="source\YamlHelper.cpp" />
+     <ClCompile Include="source\z80emu.cpp" />
++    <ClCompile Include="source\ALSCPMCard.cpp" />
+     <ClCompile Include="source\Z80VICE\daa.cpp">
+       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+diff --git a/AppleWin-VS2026.vcxproj.filters b/AppleWin-VS2026.vcxproj.filters
+index 15796760..95897e8a 100644
+--- a/AppleWin-VS2026.vcxproj.filters
++++ b/AppleWin-VS2026.vcxproj.filters
+@@ -160,6 +160,9 @@
+     <ClCompile Include="source\z80emu.cpp">
+       <Filter>Source Files\Emulator</Filter>
+     </ClCompile>
++    <ClCompile Include="source\ALSCPMCard.cpp">
++      <Filter>Source Files\Emulator</Filter>
++    </ClCompile>
+     <ClCompile Include="source\Debugger\Util_MemoryTextFile.cpp">
+       <Filter>Source Files\Debugger</Filter>
+     </ClCompile>
+@@ -498,6 +501,9 @@
+     <ClInclude Include="source\z80emu.h">
+       <Filter>Source Files\Emulator</Filter>
+     </ClInclude>
++    <ClInclude Include="source\ALSCPMCard.h">
++      <Filter>Source Files\Emulator</Filter>
++    </ClInclude>
+     <ClInclude Include="source\Debugger\Util_MemoryTextFile.h">
+       <Filter>Source Files\Debugger</Filter>
+     </ClInclude>
+diff --git a/help/CommandLine.html b/help/CommandLine.html
+index 2d2d9deb..50a0ae97 100644
+--- a/help/CommandLine.html
++++ b/help/CommandLine.html
+@@ -68,6 +68,12 @@
+ 		Insert a SSC into slot 2.<br><br>
+ 		-s3 vidhd<br>
+ 		Insert a VidHD card into slot 3.<br><br>
++		-s&lt;n&gt; &lt;z80|softcard&gt;<br>
++		Insert a Microsoft Z-80 SoftCard into slot &lt;n&gt; (1-7).<br><br>
++		-s&lt;n&gt; cpmcard<br>
++		Insert an Advanced Logic Systems "The CP/M Card" (6 MHz Z80B with 64K, for CP/M Plus 3.01) into slot &lt;n&gt; (1-7).<br>
++		Only one Z80 card can be fitted: CP/M for either card finds its card by writing every slot's $Cn00, so the other card would answer too.<br>
++		Disk images: <a href="https://github.com/mildstorm/TheCPMCard">github.com/mildstorm/TheCPMCard</a> (CPM/CPM.Disk1.DSK is the CP/M Plus 3.01C system disk; at its menu press 4 for the A&gt; prompt).<br><br>
+ 		-s5 diskii<br>
+ 		-s6 diskii<br>
+ 		Insert a Disk II controller card into slot 5 or 6.<br><br>
+diff --git a/source/ALSCPMCard.cpp b/source/ALSCPMCard.cpp
+new file mode 100644
+index 00000000..07d19d57
+--- /dev/null
++++ b/source/ALSCPMCard.cpp
+@@ -0,0 +1,241 @@
++/*
++AppleWin : An Apple //e emulator for Windows
++
++Advanced Logic Systems "The CP/M Card"
++
++A 6 MHz Z80B with its own 64K of DRAM, the card CP/M Plus 3.01 for the
++Apple II was sold with. Modelled from the card's schematic ("CP/M CARD" rev A,
++05-04-83) and photos of a board; the MAME device, the photos, the schematic
++and the disks are at https://github.com/mildstorm/TheCPMCard
++
++. No firmware ROM: the 6502 loads the system from disk.
++. Every write to $Cnxx toggles bus ownership (U22), from the 6502 or from the
++  Z80 through DMA; the 6502 is held while the Z80 has the bus. AppleWin runs
++  one CPU at a time (SetActiveCpu), as for the Z-80 SoftCard. On the card the
++  Z80 only waits (/WAIT) when it reaches for Apple memory, so it could run on
++  from its own RAM while the 6502 has the bus; CP/M Plus 3.01C never does
++  (it gives the bus back from Apple memory, and the Z80 comes out of reset
++  fetching Apple $9000), so not running it then changes nothing it can see.
++. Bank latch (U27): D0 of every Z80 OUT, port not decoded. Bank 0 (reset):
++  Z80 $0000-$EFFF is Apple memory through the U26 page PROM; bank 1: card
++  DRAM. $F000-$FFFF is card DRAM in both. An IN returns D0 = Apple /IRQ, the
++  rest pulled high.
++. U26 is not dumped: Apple = Z80 + $9000 with the $Cxxx and $Fxxx pages
++  swapped, which is what the 3.01C BIOS uses. The PROM sees A15 inverted.
++. Real-time clock: Apple PHI1 / 2^14 (U1, ~62.3 Hz) sets a tick; /INT is
++  tick OR Apple /IRQ; the acknowledge clears the tick and puts $F7 on the
++  bus (RST 30h in IM 0). The BIOS clock handler counts 60 ticks a second.
++. Clock: 12 MHz / 2 = 6 MHz in bank 1, every opcode fetch half a T-state
++  longer (U6); in bank 0 the divider only runs while PHI0 is high: 3 MHz.
++
++The boot loader finds the card by writing $Cn00 for slots 7 down to 1, and so
++does Microsoft's CP/M for the Z-80 SoftCard: the two cannot share a machine.
++*/
++
++#include "StdAfx.h"
++
++#include "ALSCPMCard.h"
++#include "CPU.h"
++#include "Memory.h"
++#include "YamlHelper.h"
++#include "Z80VICE/z80.h"
++
++ALSCPMCard* ALSCPMCard::s_card = NULL;
++
++static const double kZ80ClockHz = 12000000.0 / 2.0;	// Y1 12 MHz, U22 divides by two
++static const UINT kTickDivider = 1 << 14;			// U1 4020 Q14
++static const BYTE kIntaVector = 0xF7;				// U13 pulls D3 low: RST 30h
++
++ALSCPMCard::ALSCPMCard(UINT slot) :
++	Card(CT_ALSCPM, slot),
++	m_bank(0),
++	m_tickAcked(0),
++	m_now(0)
++{
++	memset(m_ram, 0, sizeof(m_ram));
++
++	// U26: Apple page = Z80 page + $90, the $Cx and $Fx pages swapped; the
++	// index has bit 7 flipped, as the PROM sees A15 through an inverter.
++	for (UINT page = 0; page < 0x100; page++)
++	{
++		BYTE apple = (BYTE)(page + 0x90);
++		if ((apple & 0xF0) == 0xC0)
++			apple = (apple & 0x0F) | 0xF0;
++		else if ((apple & 0xF0) == 0xF0)
++			apple = (apple & 0x0F) | 0xC0;
++		m_prom[page ^ 0x80] = apple;
++	}
++
++	static Z80Board board;
++	board.read = Z80Read;
++	board.write = Z80Write;
++	board.in = Z80In;
++	board.out = Z80Out;
++	board.intLine = Z80IntLine;
++	board.intAck = Z80IntAck;
++	board.halfSpeed = Z80HalfSpeed;
++	board.m1Stretch = Z80M1Stretch;
++	board.tStatesPer6502Cycle = kZ80ClockHz / CLK_6502_NTSC;
++
++	s_card = this;
++	Z80_SetBoard(&board);
++}
++
++ALSCPMCard::~ALSCPMCard()
++{
++	if (s_card == this)
++	{
++		s_card = NULL;
++		Z80_SetBoard(NULL);	// back to the SoftCard's map for the shared Z80
++	}
++}
++
++void ALSCPMCard::Reset(const bool powerCycle)
++{
++	// Apple /RESET resets the Z80 (CpuReset) and clears U22 and the bank
++	// latch; the DRAM keeps its contents unless the power went.
++	m_bank = 0;
++	m_tickAcked = g_nCumulativeCycles / kTickDivider;
++	if (powerCycle)
++		memset(m_ram, 0, sizeof(m_ram));
++}
++
++void ALSCPMCard::InitializeIO(LPBYTE pCxRomPeripheral)
++{
++	// No ROM: $Cnxx reads float.
++	memset(pCxRomPeripheral + (m_slot << 8), 0xFF, APPLE_SLOT_SIZE);
++	RegisterIoHandler(m_slot, IO_Null, IO_Null, IO_Null, &ALSCPMCard::IOWrite, this, NULL);
++}
++
++BYTE __stdcall ALSCPMCard::IOWrite(WORD pc, WORD addr, BYTE bWrite, BYTE value, ULONG nExecutedCycles)
++{
++	const UINT slot = (addr >> 8) & 0x7;
++
++	// Any write to $Cnxx: U22 toggles, the 6502 or the Z80 gets the bus.
++	if ((addr & 0xFF00) == (0xC000 + (slot << 8)))
++		SetActiveCpu(GetActiveCpu() == CPU_Z80 ? GetMainCpu() : CPU_Z80);
++
++	return IO_Null(pc, addr, bWrite, value, nExecutedCycles);
++}
++
++//===========================================================================
++
++BYTE ALSCPMCard::Z80Read(WORD addr, ULONG cycles)
++{
++	ALSCPMCard& card = *s_card;
++	if (card.IsLocal(addr))
++		return card.m_ram[addr];
++
++	const WORD apple = card.ToApple(addr);
++	if ((apple & 0xF000) == 0xC000)
++		return IORead[(apple >> 4) & 0xFF](regs.pc, apple, 0, 0, cycles);
++	return CpuRead(apple, cycles);
++}
++
++void ALSCPMCard::Z80Write(WORD addr, BYTE value, ULONG cycles)
++{
++	ALSCPMCard& card = *s_card;
++	if (card.IsLocal(addr))
++	{
++		card.m_ram[addr] = value;
++		return;
++	}
++
++	// A write to this card's own $Cnxx is decoded by the Apple as /IOSEL and
++	// comes back as IOWrite, which hands the bus back.
++	CpuWrite(card.ToApple(addr), value, cycles);
++}
++
++BYTE ALSCPMCard::Z80In(WORD port)
++{
++	// Any port: U13 puts Apple /IRQ on D0, RP3 pulls the rest high.
++	return IsIrqAsserted() ? 0xFE : 0xFF;
++}
++
++void ALSCPMCard::Z80Out(WORD port, BYTE value)
++{
++	// Any port: U27 latches D0.
++	s_card->m_bank = value & 0x01;
++}
++
++bool ALSCPMCard::Z80IntLine(ULONG cycles)
++{
++	ALSCPMCard& card = *s_card;
++	card.m_now = g_nCumulativeCycles + cycles;
++	// U27 is set on each rising edge of U1's Q14 and cleared by the acknowledge.
++	const bool tick = card.m_now / kTickDivider > card.m_tickAcked;
++	return tick || IsIrqAsserted();
++}
++
++BYTE ALSCPMCard::Z80IntAck()
++{
++	ALSCPMCard& card = *s_card;
++	card.m_tickAcked = card.m_now / kTickDivider;
++	return kIntaVector;
++}
++
++bool ALSCPMCard::Z80HalfSpeed()
++{
++	return s_card->m_bank == 0;
++}
++
++bool ALSCPMCard::Z80M1Stretch()
++{
++	return s_card->m_bank != 0;
++}
++
++//===========================================================================
++
++#define SS_YAML_KEY_ACTIVE "Active"
++#define SS_YAML_KEY_BANK "Bank"
++#define SS_YAML_KEY_TICK_ACKED "Tick Acknowledged"
++#define SS_YAML_KEY_REGISTERS "Z80"
++#define SS_YAML_KEY_MEMORY "Memory"
++
++const std::string& ALSCPMCard::GetSnapshotCardName()
++{
++	static const std::string name("ALS CP/M Card");
++	return name;
++}
++
++void ALSCPMCard::SaveSnapshot(YamlSaveHelper& yamlSaveHelper)
++{
++	YamlSaveHelper::Slot slot(yamlSaveHelper, GetSnapshotCardName(), m_slot, 1);
++	YamlSaveHelper::Label state(yamlSaveHelper, "%s:\n", SS_YAML_KEY_STATE);
++
++	yamlSaveHelper.Save("%s: %d\n", SS_YAML_KEY_ACTIVE, GetActiveCpu() == CPU_Z80 ? 1 : 0);
++	yamlSaveHelper.SaveHexUint8(SS_YAML_KEY_BANK, m_bank);
++	yamlSaveHelper.SaveHexUint64(SS_YAML_KEY_TICK_ACKED, m_tickAcked);
++	{
++		YamlSaveHelper::Label regs(yamlSaveHelper, "%s:\n", SS_YAML_KEY_REGISTERS);
++		Z80_SaveRegisters(yamlSaveHelper);
++	}
++	{
++		YamlSaveHelper::Label mem(yamlSaveHelper, "%s:\n", SS_YAML_KEY_MEMORY);
++		yamlSaveHelper.SaveMemory(m_ram, sizeof(m_ram));
++	}
++}
++
++bool ALSCPMCard::LoadSnapshot(YamlLoadHelper& yamlLoadHelper, UINT version)
++{
++	if (version != 1)
++		Card::ThrowErrorInvalidVersion(CT_ALSCPM, version);
++
++	m_bank = yamlLoadHelper.LoadUint(SS_YAML_KEY_BANK) & 0x01;
++	m_tickAcked = yamlLoadHelper.LoadUint64(SS_YAML_KEY_TICK_ACKED);
++
++	if (!yamlLoadHelper.GetSubMap(SS_YAML_KEY_REGISTERS))
++		throw std::runtime_error("Card: Expected key: " SS_YAML_KEY_REGISTERS);
++	Z80_LoadRegisters(yamlLoadHelper);
++	yamlLoadHelper.PopMap();
++
++	if (!yamlLoadHelper.GetSubMap(SS_YAML_KEY_MEMORY))
++		throw std::runtime_error("Card: Expected key: " SS_YAML_KEY_MEMORY);
++	yamlLoadHelper.LoadMemory(m_ram, sizeof(m_ram));
++	yamlLoadHelper.PopMap();
++
++	if (yamlLoadHelper.LoadUint(SS_YAML_KEY_ACTIVE))
++		SetActiveCpu(CPU_Z80);
++
++	return true;
++}
+diff --git a/source/ALSCPMCard.h b/source/ALSCPMCard.h
+new file mode 100644
+index 00000000..804c4e4d
+--- /dev/null
++++ b/source/ALSCPMCard.h
+@@ -0,0 +1,47 @@
++#pragma once
++
++#include "Card.h"
++
++// Advanced Logic Systems "The CP/M Card": a 6 MHz Z80B with its own 64K of
++// DRAM, sold with CP/M Plus 3.01. See ALSCPMCard.cpp.
++class ALSCPMCard : public Card
++{
++public:
++	ALSCPMCard(UINT slot);
++	virtual ~ALSCPMCard();
++
++	virtual void Destroy() {}
++	virtual void Reset(const bool powerCycle);
++	virtual void Update(const ULONG nExecutedCycles) {}
++
++	virtual void InitializeIO(LPBYTE pCxRomPeripheral);
++
++	static BYTE __stdcall IOWrite(WORD pc, WORD addr, BYTE bWrite, BYTE value, ULONG nExecutedCycles);
++
++	static const std::string& GetSnapshotCardName();
++	virtual void SaveSnapshot(YamlSaveHelper& yamlSaveHelper);
++	virtual bool LoadSnapshot(YamlLoadHelper& yamlLoadHelper, UINT version);
++
++private:
++	// The Z80's board (see Z80Board in Z80VICE/z80.h). There is one Z80, so
++	// these reach the card through s_card.
++	static BYTE Z80Read(WORD addr, ULONG cycles);
++	static void Z80Write(WORD addr, BYTE value, ULONG cycles);
++	static BYTE Z80In(WORD port);
++	static void Z80Out(WORD port, BYTE value);
++	static bool Z80IntLine(ULONG cycles);
++	static BYTE Z80IntAck();
++	static bool Z80HalfSpeed();
++	static bool Z80M1Stretch();
++
++	bool IsLocal(WORD addr) const { return m_bank != 0 || addr >= 0xF000; }
++	WORD ToApple(WORD addr) const { return (WORD)((m_prom[(addr >> 8) ^ 0x80] << 8) | (addr & 0xFF)); }
++
++	static ALSCPMCard* s_card;
++
++	BYTE m_ram[0x10000];	// card DRAM (U2-U5, U7-U10)
++	BYTE m_prom[0x100];		// U26, the half its pin 19 selects
++	BYTE m_bank;			// U27 bank latch
++	UINT64 m_tickAcked;		// U1 periods: the tick flip-flop was last cleared in this one
++	UINT64 m_now;			// 6502 cycle of the last /INT sample
++};
+diff --git a/source/Card.cpp b/source/Card.cpp
+index 0fdf6b72..19f53cb1 100644
+--- a/source/Card.cpp
++++ b/source/Card.cpp
+@@ -35,6 +35,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ #include "SNESMAX.h"
+ #include "VidHD.h"
+ #include "z80emu.h"
++#include "ALSCPMCard.h"
+ 
+ #include <sstream>
+ 
+@@ -178,6 +179,8 @@ std::string Card::GetCardName(const SS_CARDTYPE cardType)
+ 		return MockingboardCard::GetSnapshotCardNameSDMusic();
+ 	case CT_BreakpointCard:
+ 		return BreakpointCard::GetSnapshotCardName();
++	case CT_ALSCPM:
++		return ALSCPMCard::GetSnapshotCardName();
+ 	default:
+ 		return "Unknown";
+ 	}
+@@ -223,6 +226,8 @@ SS_CARDTYPE Card::GetCardType(const std::string & card)
+ 		return CT_SDMusic;
+ 	else if (card == BreakpointCard::GetSnapshotCardName())
+ 		return CT_BreakpointCard;
++	else if (card == ALSCPMCard::GetSnapshotCardName())
++		return CT_ALSCPM;
+ 	else
+ 		throw std::runtime_error("Slots: Unknown card: " + card);	// todo: don't throw - just ignore & continue
+ }
+diff --git a/source/Card.h b/source/Card.h
+index 641dca05..6d0c4347 100644
+--- a/source/Card.h
++++ b/source/Card.h
+@@ -30,6 +30,7 @@ enum SS_CARDTYPE
+ 	CT_MegaAudio,		// Soundcard
+ 	CT_SDMusic,			// Soundcard
+ 	CT_BreakpointCard,
++	CT_ALSCPM,			// Advanced Logic Systems "The CP/M Card" (Z80B, 64K)
+ 	CT_NUM_CARDS,
+ 	CT_Undefined = -1	// NB. Only for cmd line struct
+ };
+diff --git a/source/CardManager.cpp b/source/CardManager.cpp
+index 6c6adf76..c8a57648 100644
+--- a/source/CardManager.cpp
++++ b/source/CardManager.cpp
+@@ -48,6 +48,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ #include "LanguageCard.h"
+ #include "Memory.h"
+ #include "z80emu.h"
++#include "ALSCPMCard.h"
+ 
+ void CardManager::InsertInternal(UINT slot, SS_CARDTYPE type)
+ {
+@@ -89,9 +90,16 @@ void CardManager::InsertInternal(UINT slot, SS_CARDTYPE type)
+ 		break;
+ 	case CT_Z80:
+ 		_ASSERT(m_pZ80Card == NULL);
+-		if (m_pZ80Card) break;	// Only support one Z80 card
++		if (m_pZ80Card || m_pALSCPMCard) break;	// Only support one Z80 card
+ 		m_slot[slot] = m_pZ80Card = new Z80Card(slot);
+ 		break;
++	case CT_ALSCPM:
++		// One Z80 for both: the ALS CP/M Card or the SoftCard, never both (CP/M
++		// for either finds its card by writing every slot's $Cn00).
++		_ASSERT(m_pALSCPMCard == NULL);
++		if (m_pZ80Card || m_pALSCPMCard) break;
++		m_slot[slot] = m_pALSCPMCard = new ALSCPMCard(slot);
++		break;
+ 	case CT_Phasor:
+ 		m_slot[slot] = new MockingboardCard(slot, type);
+ 		break;
+@@ -185,6 +193,9 @@ void CardManager::RemoveInternal(UINT slot)
+ 		case CT_Z80:
+ 			m_pZ80Card = NULL;
+ 			break;
++		case CT_ALSCPM:
++			m_pALSCPMCard = NULL;
++			break;
+ 		}
+ 
+ 		UnregisterIoHandler(slot);
+@@ -371,6 +382,7 @@ bool CardManager::IsSingleInstanceCard(SS_CARDTYPE card)
+ 	CT_SSC,
+ 	CT_GenericPrinter,
+ 	CT_Z80,
++	CT_ALSCPM,
+ 	CT_FourPlay,
+ 	CT_SNESMAX,
+ 	CT_Uthernet,
+@@ -421,6 +433,7 @@ void CardManager::GetCardChoicesForSlot(const UINT slot, const SS_CARDTYPE currC
+ 	CT_Uthernet2,
+ 	CT_VidHD,
+ 	CT_Z80,
++	CT_ALSCPM,
+ 	//	CT_GenericClock,
+ 	//	CT_Echo,
+ 	//	CT_80Col,
+diff --git a/source/CardManager.h b/source/CardManager.h
+index e14a56fb..67b6f5d7 100644
+--- a/source/CardManager.h
++++ b/source/CardManager.h
+@@ -14,7 +14,8 @@ public:
+ 		m_pSSC(NULL),
+ 		m_pParallelPrinterCard(NULL),
+ 		m_pVidHDCard(NULL),
+-		m_pZ80Card(NULL)
++		m_pZ80Card(NULL),
++		m_pALSCPMCard(NULL)
+ 	{
+ 		// LoadConfiguration() now sets up default cards for a new install
+ 		InsertInternal(SLOT0, CT_Empty);
+@@ -93,4 +94,5 @@ private:
+ 	class ParallelPrinterCard* m_pParallelPrinterCard;
+ 	class VidHDCard* m_pVidHDCard;
+ 	class Z80Card* m_pZ80Card;
++	class ALSCPMCard* m_pALSCPMCard;
+ };
+diff --git a/source/CmdLine.cpp b/source/CmdLine.cpp
+index 2abd2ba1..6141e32f 100644
+--- a/source/CmdLine.cpp
++++ b/source/CmdLine.cpp
+@@ -252,6 +252,16 @@ bool ProcessCmdLine(LPSTR lpCmdLine)
+ 				{
+ 					g_cmdLine.slotInfo[slot].card = CT_BreakpointCard;
+ 				}
++				else if (strcmp(lpCmdLine, "z80") == 0 || strcmp(lpCmdLine, "softcard") == 0)
++				{
++					if (!CardInstanceExists(CT_Z80) && !CardInstanceExists(CT_ALSCPM))
++						g_cmdLine.slotInfo[slot].card = CT_Z80;
++				}
++				else if (strcmp(lpCmdLine, "cpmcard") == 0)	// ALS The CP/M Card
++				{
++					if (!CardInstanceExists(CT_Z80) && !CardInstanceExists(CT_ALSCPM))
++						g_cmdLine.slotInfo[slot].card = CT_ALSCPM;
++				}
+ 				else if (strcmp(lpCmdLine, "6522a-bad") == 0)
+ 				{
+ 					g_cmdLine.slotInfo[slot].useBad6522A = true;
+diff --git a/source/Z80VICE/z80.cpp b/source/Z80VICE/z80.cpp
+index 6d345718..ac59f74b 100644
+--- a/source/Z80VICE/z80.cpp
++++ b/source/Z80VICE/z80.cpp
+@@ -140,11 +140,26 @@ void z80_reset()
+ #define STORE(addr, value) \
+     (*_z80mem_write_tab_ptr[(addr) >> 8])((WORD)(addr), (BYTE)(value))
+ 
++static const Z80Board* g_z80Board = NULL;	// NULL: Microsoft Z-80 SoftCard
++
++static BYTE z80_io_read(WORD addr)
++{
++	return g_z80Board ? g_z80Board->in(addr) : (io_read_tab[addr >> 8])(addr);
++}
++
++static void z80_io_write(WORD addr, BYTE value)
++{
++	if (g_z80Board)
++		g_z80Board->out(addr, value);
++	else
++		(io_write_tab[addr >> 8])(addr, value);
++}
++
+ #define IN(addr) \
+-    (io_read_tab[(addr) >> 8])((WORD)(addr))
++    z80_io_read((WORD)(addr))
+ 
+ #define OUT(addr, value) \
+-    (io_write_tab[(addr) >> 8])((WORD)(addr), (BYTE)(value))
++    z80_io_write((WORD)(addr), (BYTE)(value))
+ 
+ #define opcode_t DWORD
+ #define FETCH_OPCODE(o) ((o) = (LOAD(z80_reg_pc)		\
+@@ -5511,13 +5526,51 @@ static void opcode_fd(BYTE ip1, BYTE ip2, BYTE ip3, WORD ip12, WORD ip23)
+ 
+ // The effective Z-80 clock rate is 2.041MHz
+ // See: http://www.apple2info.net/hardware/softcard/SC-SWHW_a2in.pdf
+-static const double uZ80ClockMultiplier = 2;
++static const double kSoftCardClockMultiplier = 2;
++static double uZ80ClockMultiplier = kSoftCardClockMultiplier;
+ 
+ inline static ULONG ConvertZ80TStatesTo6502Cycles(UINT uTStates)
+ {
+ 	return (uTStates < 0) ? 0 : (ULONG) ((double)uTStates / uZ80ClockMultiplier);
+ }
+ 
++void Z80_SetBoard(const Z80Board* board)
++{
++	g_z80Board = board;
++	uZ80ClockMultiplier = board ? board->tStatesPer6502Cycle : kSoftCardClockMultiplier;
++}
++
++// A board's /INT, taken between instructions while IFF1 is set (not right
++// after EI). The acknowledge pushes PC and runs what the board puts on the
++// bus: in IM 0 an RST, in IM 1 RST 38h, in IM 2 the vector at I:byte.
++static BYTE z80_ei_delay = 0;
++
++static void z80_take_interrupt()
++{
++	if (LOAD(z80_reg_pc) == 0x76)	// HALT: return past it
++		z80_reg_pc = (z80_reg_pc + 1) & 0xffff;
++
++	const BYTE ack = g_z80Board->intAck();
++	iff1 = 0;
++	iff2 = 0;
++	--reg_sp;
++	STORE(reg_sp, (BYTE)(z80_reg_pc >> 8));
++	--reg_sp;
++	STORE(reg_sp, (BYTE)(z80_reg_pc & 0xff));
++
++	if (im_mode == 2)
++	{
++		const WORD vector = (WORD)((reg_i << 8) | ack);
++		JUMP(LOAD(vector) | (LOAD((WORD)(vector + 1)) << 8));
++		CLK += 19;
++	}
++	else
++	{
++		JUMP((im_mode == 0 && (ack & 0xc7) == 0xc7) ? (ack & 0x38) : 0x38);
++		CLK += 13;
++	}
++}
++
+ //void z80_mainloop(interrupt_cpu_status_t *cpu_int_status,
+ //                  alarm_context_t *cpu_alarm_context)
+ 
+@@ -5535,7 +5588,19 @@ DWORD z80_mainloop(ULONG uTotalCycles, ULONG uExecutedCycles)
+ 	uExecutedCycles = (ULONG) ((double)uExecutedCycles * uZ80ClockMultiplier);
+ 	maincpu_clk = uExecutedCycles;	// Must be signed int, as cycles can go -ve
+ 
++    static unsigned int m1HalfStates = 0;	// half T-states owed by a board's M1 stretch
++
+     do {
++		const CLOCK clkInstructionStart = CLK;
++		const bool halfSpeed = g_z80Board && g_z80Board->halfSpeed();
++		const bool m1Stretch = g_z80Board && g_z80Board->m1Stretch();
++
++		if (g_z80Board && iff1 && !z80_ei_delay &&
++			g_z80Board->intLine(ConvertZ80TStatesTo6502Cycles(CLK)))
++		{
++			z80_take_interrupt();
++		}
++		z80_ei_delay = 0;
+ 
+ 		// [AppleWin-TC] Z80 IRQs not supported
+         //while (CLK >= alarm_context_next_pending_clk(cpu_alarm_context))
+@@ -6341,6 +6406,23 @@ DWORD z80_mainloop(ULONG uTotalCycles, ULONG uExecutedCycles)
+ 
+         //cpu_int_status->num_dma_per_opcode = 0;	// [AppleWin-TC] Not used
+ 
++		if (g_z80Board)
++		{
++			if (p0 == 0xfb)		// EI: no interrupt before the next instruction
++				z80_ei_delay = 1;
++
++			if (m1Stretch)
++			{
++				// One M1 per opcode, two with a CB/DD/ED/FD prefix
++				m1HalfStates += (p0 == 0xcb || p0 == 0xdd || p0 == 0xed || p0 == 0xfd) ? 2 : 1;
++				CLK += m1HalfStates / 2;
++				m1HalfStates %= 2;
++			}
++
++			if (halfSpeed)		// the clock only runs half the time: twice as long
++				CLK += CLK - clkInstructionStart;
++		}
++
+         if (GetActiveCpu() != CPU_Z80)				// [AppleWin-TC]
+             break;
+ 
+@@ -6359,6 +6441,9 @@ BYTE z80_RDMEM(WORD Addr)
+ {
+ 	WORD addr;
+ 
++	if (g_z80Board)
++		return g_z80Board->read(Addr, ConvertZ80TStatesTo6502Cycles(maincpu_clk));
++
+ 	switch (Addr / 0x1000)
+ 	{
+ 		case 0x0:
+@@ -6404,6 +6489,12 @@ void z80_WRMEM(WORD Addr, BYTE Value)
+ 	unsigned int laddr;
+ 	WORD addr;
+ 
++	if (g_z80Board)
++	{
++		g_z80Board->write(Addr, Value, ConvertZ80TStatesTo6502Cycles(maincpu_clk));
++		return;
++	}
++
+ 	laddr = Addr & 0x0FFF;
+ 	switch (Addr & 0xF000)
+ 	{
+@@ -6490,6 +6581,11 @@ void Z80_SaveSnapshot(class YamlSaveHelper& yamlSaveHelper, const UINT uSlot)
+ 
+ 	yamlSaveHelper.Save("%s: %d\n", SS_YAML_KEY_ACTIVE, GetActiveCpu() == CPU_Z80 ? 1 : 0);
+ 
++	Z80_SaveRegisters(yamlSaveHelper);
++}
++
++void Z80_SaveRegisters(class YamlSaveHelper& yamlSaveHelper)
++{
+ 	yamlSaveHelper.SaveHexUint8(SS_YAML_KEY_REGA, reg_a);
+ 	yamlSaveHelper.SaveHexUint8(SS_YAML_KEY_REGB, reg_b);
+ 	yamlSaveHelper.SaveHexUint8(SS_YAML_KEY_REGC, reg_c);
+@@ -6527,6 +6623,16 @@ bool Z80_LoadSnapshot(class YamlLoadHelper& yamlLoadHelper, UINT uSlot, UINT ver
+ 	if (version != 1)
+ 		Card::ThrowErrorInvalidVersion(CT_Z80, version);
+ 
++	Z80_LoadRegisters(yamlLoadHelper);
++
++	if ( yamlLoadHelper.LoadUint(SS_YAML_KEY_ACTIVE) )
++		SetActiveCpu(CPU_Z80);	// Support MS SoftCard in multiple slots (only one Z80 can be active at any one time)
++
++	return true;
++}
++
++void Z80_LoadRegisters(class YamlLoadHelper& yamlLoadHelper)
++{
+ 	reg_a = yamlLoadHelper.LoadUint(SS_YAML_KEY_REGA);
+ 	reg_b = yamlLoadHelper.LoadUint(SS_YAML_KEY_REGB);
+ 	reg_c = yamlLoadHelper.LoadUint(SS_YAML_KEY_REGC);
+@@ -6560,9 +6666,4 @@ bool Z80_LoadSnapshot(class YamlLoadHelper& yamlLoadHelper, UINT uSlot, UINT ver
+ 	reg_l2 = yamlLoadHelper.LoadUint(SS_YAML_KEY_REGL2);
+ 
+ 	export_registers();
+-
+-	if ( yamlLoadHelper.LoadUint(SS_YAML_KEY_ACTIVE) )
+-		SetActiveCpu(CPU_Z80);	// Support MS SoftCard in multiple slots (only one Z80 can be active at any one time)
+-
+-	return true;
+ }
+diff --git a/source/Z80VICE/z80.h b/source/Z80VICE/z80.h
+index b45de4f4..c11fe8c6 100644
+--- a/source/Z80VICE/z80.h
++++ b/source/Z80VICE/z80.h
+@@ -43,6 +43,27 @@ DWORD z80_mainloop(ULONG uTotalCycles, ULONG uExecutedCycles);
+ BYTE z80_RDMEM(WORD Addr);
+ void z80_WRMEM(WORD Addr, BYTE Value);
+ 
++// The board the (single) Z80 sits on. None installed: Microsoft's Z-80
++// SoftCard, as before (fixed map, 2 T-states per 6502 cycle, no interrupts).
++// A card that brings its own memory, I/O ports, clock and /INT installs one.
++struct Z80Board
++{
++	BYTE (*read)(WORD addr, ULONG cycles);              // cycles: 6502 cycles into this burst
++	void (*write)(WORD addr, BYTE value, ULONG cycles);
++	BYTE (*in)(WORD port);
++	void (*out)(WORD port, BYTE value);
++	bool (*intLine)(ULONG cycles);                      // /INT asserted (a level)
++	BYTE (*intAck)();                                   // the data bus byte during the acknowledge
++	bool (*halfSpeed)();                                // clock runs at half rate now
++	bool (*m1Stretch)();                                // every M1 cycle is half a T-state longer now
++	double tStatesPer6502Cycle;                         // at full rate
++};
++void Z80_SetBoard(const Z80Board* board);
++
++// The registers alone, for a card that saves its own snapshot.
++void Z80_SaveRegisters(class YamlSaveHelper& yamlSaveHelper);
++void Z80_LoadRegisters(class YamlLoadHelper& yamlLoadHelper);
++
+ const std::string& Z80_GetSnapshotCardNameOld();
+ const std::string& Z80_GetSnapshotCardName();
+ void Z80_SaveSnapshot(class YamlSaveHelper& yamlSaveHelper, const UINT uSlot);
+-- 
+2.56.1.windows.1
+

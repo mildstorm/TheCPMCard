@@ -1,8 +1,8 @@
-# ALS The CP/M Card for MAME
+# ALS The CP/M Card for MAME and AppleWin
 
 [한국어](README.md) | [English](README.en.md)
 
-이 저장소는 ALS The CP/M Card를 MAME의 Apple II 버스에 추가하는 변경 사항과 CP/M 디스크 이미지 및 참고 문서를 제공합니다. MAME 전체 소스는 포함하지 않습니다.
+이 저장소는 ALS The CP/M Card를 MAME의 Apple II 버스와 AppleWin에 추가하는 변경 사항, CP/M 디스크 이미지 및 참고 문서를 제공합니다. 두 포팅은 서로 독립적이며(MAME: `src/`, `patches/` / AppleWin: `applewin/`), 각 에뮬레이터의 전체 소스는 포함하지 않습니다.
 
 ## 구성
 
@@ -13,6 +13,7 @@
 - `CPM/`: CP/M 디스크 이미지와 카드 참고 문서
 - `screenshots/cpm-card-boot.png`: CP/M 카드 장착 상태의 현재 실행 화면
 - `photos/`: 실제 카드 사진(부품면·납땜면 스캔과 부분 확대 사진)
+- `applewin/applewin-cpmcard.patch`, `applewin/source/ALSCPMCard.cpp`, `ALSCPMCard.h`: AppleWin 포팅 (아래 "AppleWin에 적용하고 빌드")
 
 ## MAME에 적용하고 빌드
 
@@ -37,7 +38,35 @@ make -j$(nproc) SUBTARGET=apple2e SOURCES=src/mame/apple/apple2e.cpp REGENIE=1
 
 운영체제별 필수 빌드 도구와 설정은 [MAME 컴파일 안내](https://docs.mamedev.org/initialsetup/compilingmame.html)를 참고하세요.
 
-## CP/M 카드 실행
+## AppleWin에 적용하고 빌드
+
+AppleWin 커밋 `4a43bcdb`(upstream master)를 기준으로 작성했습니다. 패치는 새 파일 `source/ALSCPMCard.{h,cpp}`와 카드 등록·명령줄·VS 프로젝트·도움말 변경을 모두 담고 있습니다(`applewin/source/`는 같은 카드 소스의 사본).
+
+```bash
+git clone https://github.com/AppleWin/AppleWin.git
+cd AppleWin
+git checkout 4a43bcdb
+git am ../TheCPMCard/applewin/applewin-cpmcard.patch
+```
+
+Visual Studio 2026으로 `AppleWin-VS2026.vcxproj`를 Release/Win32로 빌드합니다. VS2022 빌드 도구(v143)가 없으면 하위 라이브러리 프로젝트에 툴셋을 덮어씁니다.
+
+```bash
+MSBuild AppleWin-VS2026.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v145
+```
+
+실행: 설정 화면의 슬롯 목록에서 "ALS CP/M Card"를 고르거나 명령줄을 씁니다. 시작 메뉴에서 `4`를 누르면 `A>`입니다.
+
+```bash
+Release\AppleWin.exe -s5 cpmcard -d1 "..\TheCPMCard\CPM\CPM.Disk1.DSK"
+```
+
+- Microsoft Z-80 SoftCard(`-sN z80` 또는 `-sN softcard`)와는 동시에 꽂을 수 없습니다(Z80 카드는 하나만).
+- 구현: AppleWin의 단일 Z80(VICE 코어)에 "보드" 연결 지점(`Z80Board`)을 추가해 카드가 메모리·I/O·클럭(뱅크 1 6 MHz + M1 연장, 뱅크 0 3 MHz)·레벨 `/INT`(IM 0/1/2)를 공급합니다. 보드가 없으면 SoftCard는 기존과 같습니다.
+- AppleWin은 한 번에 한 CPU만 돌리므로, 6502가 버스를 가진 동안 Z80이 자기 RAM에서 계속 도는 동작은 없습니다. CP/M Plus 3.01C는 항상 Apple 메모리에서 버스를 넘기므로 결과는 같습니다.
+- 확인: CP/M Plus 3.01C 부팅, `DIR`, `DATE`(흐르는 시계). SoftCard의 Microsoft CP/M 2.20B도 그대로 동작.
+
+## CP/M 카드 실행 (MAME)
 
 ALS The CP/M Card는 빈 슬롯 어디에나, 5.25인치 Disk II 컨트롤러는 슬롯 6에 장착합니다. 부팅 코드가 카드의 슬롯을 스스로 찾으므로 슬롯 1, 4, 5, 7에서 모두 부팅을 확인했습니다. 단 **Microsoft Z-80 SoftCard와 함께 꽂으면 안 됩니다**(아래 "부팅 과정" 참고). 아래 예에서는 기본 슬롯 6 Disk II 컨트롤러를 유지하고 CP/M 카드를 슬롯 4에 둡니다. CP/M Plus 시스템 디스크를 첫 번째 드라이브에, GSX-80 D1을 두 번째 드라이브에 연결합니다.
 
