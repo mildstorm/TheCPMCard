@@ -2,20 +2,34 @@
 
 [한국어](README.md) | [English](README.en.md)
 
-이 저장소는 ALS The CP/M Card를 MAME의 Apple II 버스와 AppleWin에 추가하는 변경 사항, CP/M 디스크 이미지 및 참고 문서를 제공합니다. 두 포팅은 서로 독립적이며(MAME: `src/`, `patches/` / AppleWin: `applewin/`), 각 에뮬레이터의 전체 소스는 포함하지 않습니다.
+이 저장소는 ALS The CP/M Card를 MAME와 AppleWin에 추가하는 변경 사항, CP/M 디스크 이미지 및 참고 문서를 제공합니다. 두 포팅은 서로 독립적이며 폴더로 나뉘어 있습니다. 각 에뮬레이터의 전체 소스는 포함하지 않습니다.
 
-## 구성
+## 폴더 구성
 
-- `src/devices/bus/a2bus/a2cpmcard.cpp`, `a2cpmcard.h`: 6 MHz Z80B, 카드 RAM, Apple II 메모리/DMA 연결, 뱅크 전환 및 슬롯 제어 구현
-- `src/lib/formats/fdi_dsk.cpp`: MAME의 PC-98 FDI 포맷 구현을 재사용하는 래퍼
-- `patches/mame-cpmcard.patch`: 새 파일과 MAME 빌드 목록/Apple II 슬롯 등록, a2bus의 `/IRQ` 변화 통지(`a2bus.cpp/.h`, `bus_irq_w()`)를 적용하는 패치
-- `patches/mame-apple2e-backspace.patch`: Apple IIe Backspace 수정 패치
-- `CPM/`: CP/M 디스크 이미지와 카드 참고 문서
-- `screenshots/cpm-card-boot.png`: CP/M 카드 장착 상태의 현재 실행 화면
-- `photos/`: 실제 카드 사진(부품면·납땜면 스캔과 부분 확대 사진)
-- `applewin/applewin-cpmcard.patch`, `applewin/source/ALSCPMCard.cpp`, `ALSCPMCard.h`: AppleWin 포팅 (아래 "AppleWin에 적용하고 빌드")
+| 폴더 | 대상 | 내용 |
+|------|------|------|
+| `mame/` | MAME | 카드 소스와 MAME 패치, 실행 화면 |
+| `applewin/` | AppleWin | 카드 소스와 AppleWin 패치, 실행 화면 |
+| `CPM/` | 공통 | CP/M 디스크 이미지와 카드 참고 문서(회로도 PDF 등) |
+| `photos/` | 공통 | 실제 카드 사진(부품면·납땜면 스캔과 부분 확대 사진) |
 
-## MAME에 적용하고 빌드
+**MAME (`mame/`)**
+
+- `mame/src/devices/bus/a2bus/a2cpmcard.cpp`, `a2cpmcard.h`: 6 MHz Z80B, 카드 RAM, Apple II 메모리/DMA 연결, 뱅크 전환 및 슬롯 제어 구현
+- `mame/src/lib/formats/fdi_dsk.cpp`: MAME의 PC-98 FDI 포맷 구현을 재사용하는 래퍼
+- `mame/patches/mame-cpmcard.patch`: 새 파일과 MAME 빌드 목록/Apple II 슬롯 등록, a2bus의 `/IRQ` 변화 통지(`a2bus.cpp/.h`, `bus_irq_w()`)를 적용하는 패치
+- `mame/patches/mame-apple2e-backspace.patch`: Apple IIe Backspace 수정 패치
+- `mame/screenshots/cpm-card-boot.png`: MAME 실행 화면
+
+**AppleWin (`applewin/`)**
+
+- `applewin/applewin-cpmcard.patch`: 카드 추가 전체 패치(`git am`용)
+- `applewin/source/ALSCPMCard.cpp`, `ALSCPMCard.h`: 카드 소스(패치에 든 것과 같은 사본)
+- `applewin/screenshots/cpm-card-boot.png`: AppleWin 실행 화면
+
+## MAME
+
+### MAME에 적용하고 빌드
 
 이 변경은 MAME 커밋 `84981cc15cfc1429e48f098d80c6dd97bc82a0bc`를 기준으로 작성했습니다. MAME와 이 저장소를 같은 상위 폴더에 내려받고, 해당 MAME 커밋에서 패치를 적용합니다.
 
@@ -24,8 +38,8 @@ git clone https://github.com/mamedev/mame.git
 git clone https://github.com/mildstorm/TheCPMCard.git
 cd mame
 git checkout 84981cc15cfc1429e48f098d80c6dd97bc82a0bc
-git apply ../TheCPMCard/patches/mame-cpmcard.patch
-git apply ../TheCPMCard/patches/mame-apple2e-backspace.patch
+git apply ../TheCPMCard/mame/patches/mame-cpmcard.patch
+git apply ../TheCPMCard/mame/patches/mame-apple2e-backspace.patch
 ```
 
 두 번째 패치는 Apple IIe의 Delete 키(호스트 Backspace 키)를 ASCII Backspace(`0x08`)로 매핑해 CP/M 명령행 편집이 동작하도록 합니다.
@@ -38,7 +52,29 @@ make -j$(nproc) SUBTARGET=apple2e SOURCES=src/mame/apple/apple2e.cpp REGENIE=1
 
 운영체제별 필수 빌드 도구와 설정은 [MAME 컴파일 안내](https://docs.mamedev.org/initialsetup/compilingmame.html)를 참고하세요.
 
-## AppleWin에 적용하고 빌드
+### MAME에서 실행
+
+ALS The CP/M Card는 빈 슬롯 어디에나, 5.25인치 Disk II 컨트롤러는 슬롯 6에 장착합니다. 부팅 코드가 카드의 슬롯을 스스로 찾으므로 슬롯 1, 4, 5, 7에서 모두 부팅을 확인했습니다. 단 **Microsoft Z-80 SoftCard와 함께 꽂으면 안 됩니다**(아래 "공통 자료 > 부팅 과정" 참고). 아래 예에서는 기본 슬롯 6 Disk II 컨트롤러를 유지하고 CP/M 카드를 슬롯 4에 둡니다. CP/M Plus 시스템 디스크를 첫 번째 드라이브에, GSX-80 D1을 두 번째 드라이브에 연결합니다.
+
+MAME 루트 디렉터리에서 실행합니다. 이 예는 두 저장소를 같은 상위 폴더에 clone한 경우입니다.
+
+```bash
+./apple2e.exe apple2e -window -nomaximize -sl4 cpmcard \
+  -flop1 "../TheCPMCard/CPM/CPM.Disk1.DSK" \
+  -flop2 "../TheCPMCard/CPM/GSX-80 VERSION 1.1/GSX80D1.DSK"
+```
+
+MAME는 기본적으로 전체 화면으로 실행됩니다. `-window -nomaximize`를 사용하면 작은 창으로 열리며, 창 테두리를 드래그해 크기를 조절할 수 있습니다.
+
+시작 메뉴에서 `4`를 눌러 `A>` 프롬프트로 이동합니다. 호스트 Backspace 키를 누르면 앞 글자가 지워집니다.
+
+아래는 위 명령으로 실행해 CP/M Plus 3.01C가 표시된 화면입니다.
+
+![ALS The CP/M Card running in MAME](mame/screenshots/cpm-card-boot.png)
+
+## AppleWin
+
+### AppleWin에 적용하고 빌드
 
 AppleWin 커밋 `4a43bcdb`(upstream master)를 기준으로 작성했습니다. 패치는 새 파일 `source/ALSCPMCard.{h,cpp}`와 카드 등록·명령줄·VS 프로젝트·도움말 변경을 모두 담고 있습니다(`applewin/source/`는 같은 카드 소스의 사본).
 
@@ -55,7 +91,9 @@ Visual Studio 2026으로 `AppleWin-VS2026.vcxproj`를 Release/Win32로 빌드합
 MSBuild AppleWin-VS2026.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v145
 ```
 
-실행: 설정 화면의 슬롯 목록에서 "ALS CP/M Card"를 고르거나 명령줄을 씁니다. 시작 메뉴에서 `4`를 누르면 `A>`입니다.
+### AppleWin에서 실행
+
+설정 화면의 슬롯 목록에서 "ALS CP/M Card"를 고르거나 명령줄을 씁니다. 시작 메뉴에서 `4`를 누르면 `A>`입니다.
 
 ```bash
 Release\AppleWin.exe -s5 cpmcard -d1 "..\TheCPMCard\CPM\CPM.Disk1.DSK"
@@ -66,29 +104,15 @@ Release\AppleWin.exe -s5 cpmcard -d1 "..\TheCPMCard\CPM\CPM.Disk1.DSK"
 - AppleWin은 한 번에 한 CPU만 돌리므로, 6502가 버스를 가진 동안 Z80이 자기 RAM에서 계속 도는 동작은 없습니다. CP/M Plus 3.01C는 항상 Apple 메모리에서 버스를 넘기므로 결과는 같습니다.
 - 확인: CP/M Plus 3.01C 부팅, `DIR`, `DATE`(흐르는 시계). SoftCard의 Microsoft CP/M 2.20B도 그대로 동작.
 
-## CP/M 카드 실행 (MAME)
+아래는 AppleWin에서 `4`, `DIR`을 입력한 화면입니다.
 
-ALS The CP/M Card는 빈 슬롯 어디에나, 5.25인치 Disk II 컨트롤러는 슬롯 6에 장착합니다. 부팅 코드가 카드의 슬롯을 스스로 찾으므로 슬롯 1, 4, 5, 7에서 모두 부팅을 확인했습니다. 단 **Microsoft Z-80 SoftCard와 함께 꽂으면 안 됩니다**(아래 "부팅 과정" 참고). 아래 예에서는 기본 슬롯 6 Disk II 컨트롤러를 유지하고 CP/M 카드를 슬롯 4에 둡니다. CP/M Plus 시스템 디스크를 첫 번째 드라이브에, GSX-80 D1을 두 번째 드라이브에 연결합니다.
+![ALS The CP/M Card running in AppleWin](applewin/screenshots/cpm-card-boot.png)
 
-MAME 루트 디렉터리에서 실행합니다. 이 예는 두 저장소를 같은 상위 폴더에 clone한 경우입니다.
+## 공통 자료
 
-```bash
-./apple2e.exe apple2e -window -nomaximize -sl4 cpmcard \
-  -flop1 "../TheCPMCard/CPM/CPM.Disk1.DSK" \
-  -flop2 "../TheCPMCard/CPM/GSX-80 VERSION 1.1/GSX80D1.DSK"
-```
+두 포팅이 함께 따르는 하드웨어 설명과, 함께 쓰는 디스크(`CPM/`)·사진(`photos/`)입니다.
 
-MAME는 기본적으로 전체 화면으로 실행됩니다. `-window -nomaximize`를 사용하면 작은 창으로 열리며, 창 테두리를 드래그해 크기를 조절할 수 있습니다.
-
-시작 메뉴에서 `4`를 눌러 `A>` 프롬프트로 이동합니다. 호스트 Backspace 키를 누르면 앞 글자가 지워집니다.
-
-## 현재 실행 화면
-
-아래는 위 명령으로 실행해 CP/M Plus 3.01C가 표시된 화면입니다.
-
-![ALS The CP/M Card running in MAME](screenshots/cpm-card-boot.png)
-
-## 하드웨어 모델
+### 하드웨어 모델
 
 실제 보드 사진(PCB "DIGITAL RESEARCH / Advanced Logic Systems", 08-83)과 `CPM/CPM Card Schematic.pdf`(rev A, 05-04-83)를 기준으로 구현했습니다.
 
@@ -112,7 +136,7 @@ MAME는 기본적으로 전체 화면으로 실행됩니다. `-window -nomaximiz
 - **실시간 클럭**: U1이 Apple Φ1을 2^14로 나눕니다(≈62.3 Hz). Z80 /INT = 틱 대기 OR Apple /IRQ(슬롯 30번 핀)입니다. 인터럽트 응답 때 틱을 지우고 `$F7`(IM 0에서 `RST 30h`)을 버스에 올립니다. 3.01C BIOS의 시계 핸들러(`$FB94`)는 60틱을 1초로 세므로 `DATE`의 시계가 흐르며, 실제 카드처럼 약 4% 빠릅니다.
 - **Z80 클럭**: 뱅크 1에서는 U6이 명령어 읽기마다 12 MHz 펄스 하나를 빼서 M1이 4.5 T-state가 됩니다(두 번 읽을 때마다 1 T-state 추가로 구현). 뱅크 0에서는 Apple Φ0가 high인 동안에만 분주기가 돌고, Φ0는 매 Apple 사이클의 정확히 50%가 high이므로 평균 3 MHz입니다(클럭 배율 0.5, 두 크리스털은 위상이 고정되지 않음).
 
-## 부팅 과정
+### 부팅 과정
 
 CP/M Plus 3.01C 부팅 디스크(`CPM.Disk1.DSK`)를 디스어셈블해 확인한 내용입니다. 다른 에뮬레이터로 옮길 때 이 순서가 그대로 재현되어야 합니다.
 
@@ -130,6 +154,6 @@ CP/M Plus 3.01C 부팅 디스크(`CPM.Disk1.DSK`)를 디스어셈블해 확인�
 - **Z80은 반드시 `$0000`부터 시작해야 함**: 리셋 후 Z80이 다른 주소에서 시작하면(예: 대기 중 NMI가 남아 `$0066`으로 감) 3번 단계를 건너뛰고, 기본값으로 남은 슬롯 4(`$C400`)에 버스를 돌려주려다 멈춥니다. MAME의 Z80은 리셋 때 NMI 대기를 지우므로 이 문제가 없습니다. 다른 Z80 코어로 옮길 때는 리셋에서 NMI 대기가 지워지는지 확인해야 합니다.
 - **6502는 `$Cn00` 쓰기 직후 바로 멈춰야 함**: 한 명령이라도 더 실행하면 `$08FF`이 줄어 Z80이 엉뚱한 슬롯으로 버스를 돌려줍니다.
 
-## 디스크와 참고 문서
+### 디스크와 참고 문서
 
 `CPM/` 폴더에는 CP/M 2.2 및 CP/M Plus 디스크, ProDOS 디스크와 카드 관련 참고 PDF가 있습니다. 일부 디스크 이미지와 문서는 제3자 저작물일 수 있으므로 사용 및 배포 시 해당 권리와 라이선스를 확인하세요.

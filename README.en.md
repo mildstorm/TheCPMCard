@@ -2,20 +2,34 @@
 
 [한국어](README.md) | [English](README.en.md)
 
-This repository provides the changes needed to add the ALS The CP/M Card to MAME's Apple II bus and to AppleWin, along with CP/M disk images and reference documents. The two ports are independent (MAME: `src/`, `patches/`; AppleWin: `applewin/`). Neither emulator's full source tree is included.
+This repository provides the changes needed to add the ALS The CP/M Card to MAME and to AppleWin, along with CP/M disk images and reference documents. The two ports are independent and live in separate folders. Neither emulator's full source tree is included.
 
-## Contents
+## Folder layout
 
-- `src/devices/bus/a2bus/a2cpmcard.cpp` and `a2cpmcard.h`: the 6 MHz Z80B card, onboard RAM, Apple II memory and DMA access, bank switching, and slot control
-- `src/lib/formats/fdi_dsk.cpp`: a wrapper that reuses MAME's PC-98 FDI format implementation
-- `patches/mame-cpmcard.patch`: adds the card files to MAME's build, registers the card in Apple II slots, and adds `/IRQ` change notification to the a2bus (`a2bus.cpp/.h`, `bus_irq_w()`)
-- `patches/mame-apple2e-backspace.patch`: fixes Apple IIe Backspace input
-- `CPM/`: CP/M disk images and card reference documents
-- `screenshots/cpm-card-boot.png`: a complete CP/M startup screen with the card installed
-- `photos/`: photos of a real card (component and solder side scans plus close-ups)
-- `applewin/applewin-cpmcard.patch`, `applewin/source/ALSCPMCard.cpp` and `ALSCPMCard.h`: the AppleWin port (see "Apply to AppleWin and build")
+| Folder | For | Contents |
+|--------|-----|----------|
+| `mame/` | MAME | card sources, MAME patches, screenshot |
+| `applewin/` | AppleWin | card sources, AppleWin patch, screenshot |
+| `CPM/` | both | CP/M disk images and card reference documents (schematic PDF and more) |
+| `photos/` | both | photos of a real card (component and solder side scans plus close-ups) |
 
-## Apply the patches and build MAME
+**MAME (`mame/`)**
+
+- `mame/src/devices/bus/a2bus/a2cpmcard.cpp` and `a2cpmcard.h`: the 6 MHz Z80B card, onboard RAM, Apple II memory and DMA access, bank switching, and slot control
+- `mame/src/lib/formats/fdi_dsk.cpp`: a wrapper that reuses MAME's PC-98 FDI format implementation
+- `mame/patches/mame-cpmcard.patch`: adds the card files to MAME's build, registers the card in Apple II slots, and adds `/IRQ` change notification to the a2bus (`a2bus.cpp/.h`, `bus_irq_w()`)
+- `mame/patches/mame-apple2e-backspace.patch`: fixes Apple IIe Backspace input
+- `mame/screenshots/cpm-card-boot.png`: the card running in MAME
+
+**AppleWin (`applewin/`)**
+
+- `applewin/applewin-cpmcard.patch`: the whole change, for `git am`
+- `applewin/source/ALSCPMCard.cpp` and `ALSCPMCard.h`: the card sources (a copy of what the patch adds)
+- `applewin/screenshots/cpm-card-boot.png`: the card running in AppleWin
+
+## MAME
+
+### Apply the patches and build MAME
 
 These changes are based on MAME commit `84981cc15cfc1429e48f098d80c6dd97bc82a0bc`. Clone MAME and this repository into sibling directories, then apply both patches from the MAME checkout:
 
@@ -24,8 +38,8 @@ git clone https://github.com/mamedev/mame.git
 git clone https://github.com/mildstorm/TheCPMCard.git
 cd mame
 git checkout 84981cc15cfc1429e48f098d80c6dd97bc82a0bc
-git apply ../TheCPMCard/patches/mame-cpmcard.patch
-git apply ../TheCPMCard/patches/mame-apple2e-backspace.patch
+git apply ../TheCPMCard/mame/patches/mame-cpmcard.patch
+git apply ../TheCPMCard/mame/patches/mame-apple2e-backspace.patch
 ```
 
 The Backspace patch maps the Apple IIe Delete key, which is bound to the host Backspace key, to ASCII Backspace (`0x08`) so CP/M command-line editing works as expected.
@@ -38,7 +52,29 @@ make -j$(nproc) SUBTARGET=apple2e SOURCES=src/mame/apple/apple2e.cpp REGENIE=1
 
 See the [MAME compilation guide](https://docs.mamedev.org/initialsetup/compilingmame.html) for platform-specific prerequisites and build instructions.
 
-## Apply to AppleWin and build
+### Run CP/M in MAME
+
+Install the ALS CP/M card in any free slot and a 5.25-inch Disk II controller in slot 6. The boot code finds the card's slot itself; booting was verified with the card in slots 1, 4, 5 and 7. **Do not fit a Microsoft Z-80 SoftCard at the same time** (see "Shared material > Boot process" below). The command below keeps the default slot 6 Disk II controller, puts the CP/M card in slot 4, and mounts the CP/M Plus system disk and GSX-80 D1 disk in the first two drives.
+
+Run it from the MAME source directory. This example assumes the MAME and TheCPMCard repositories are sibling directories:
+
+```bash
+./apple2e.exe apple2e -window -nomaximize -sl4 cpmcard \
+  -flop1 "../TheCPMCard/CPM/CPM.Disk1.DSK" \
+  -flop2 "../TheCPMCard/CPM/GSX-80 VERSION 1.1/GSX80D1.DSK"
+```
+
+MAME defaults to full-screen mode. `-window -nomaximize` opens it in a smaller window; drag a window edge to resize it.
+
+At the startup menu, press `4` to reach the `A>` prompt. Pressing the host Backspace key removes the previous character.
+
+The image below shows the complete CP/M Plus 3.01C startup menu:
+
+![ALS The CP/M Card running in MAME](mame/screenshots/cpm-card-boot.png)
+
+## AppleWin
+
+### Apply to AppleWin and build
 
 Based on AppleWin commit `4a43bcdb` (upstream master). The patch carries the new `source/ALSCPMCard.{h,cpp}` and the card registration, command line, VS project and help changes. `applewin/source/` holds a copy of the same card sources.
 
@@ -55,7 +91,9 @@ Build `AppleWin-VS2026.vcxproj` as Release/Win32 with Visual Studio 2026. Withou
 MSBuild AppleWin-VS2026.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v145
 ```
 
-To run, choose "ALS CP/M Card" in a slot in the configuration dialog, or use the command line. At the startup menu press `4` for the `A>` prompt.
+### Run CP/M in AppleWin
+
+Choose "ALS CP/M Card" in a slot in the configuration dialog, or use the command line. At the startup menu press `4` for the `A>` prompt.
 
 ```bash
 Release\AppleWin.exe -s5 cpmcard -d1 "..\TheCPMCard\CPM\CPM.Disk1.DSK"
@@ -66,29 +104,15 @@ Release\AppleWin.exe -s5 cpmcard -d1 "..\TheCPMCard\CPM\CPM.Disk1.DSK"
 - AppleWin runs one CPU at a time, so the Z80 does not run on from its own RAM while the 6502 has the bus. CP/M Plus 3.01C always hands the bus over from Apple memory, so the result is the same.
 - Verified: CP/M Plus 3.01C boots, and `DIR` and `DATE` (running clock) work. Microsoft CP/M 2.20B on the SoftCard is unchanged.
 
-## Run CP/M (MAME)
+The image below shows AppleWin after typing `4` and `DIR`:
 
-Install the ALS CP/M card in any free slot and a 5.25-inch Disk II controller in slot 6. The boot code finds the card's slot itself; booting was verified with the card in slots 1, 4, 5 and 7. **Do not fit a Microsoft Z-80 SoftCard at the same time** (see "Boot process" below). The command below keeps the default slot 6 Disk II controller, puts the CP/M card in slot 4, and mounts the CP/M Plus system disk and GSX-80 D1 disk in the first two drives.
+![ALS The CP/M Card running in AppleWin](applewin/screenshots/cpm-card-boot.png)
 
-Run it from the MAME source directory. This example assumes the MAME and TheCPMCard repositories are sibling directories:
+## Shared material
 
-```bash
-./apple2e.exe apple2e -window -nomaximize -sl4 cpmcard \
-  -flop1 "../TheCPMCard/CPM/CPM.Disk1.DSK" \
-  -flop2 "../TheCPMCard/CPM/GSX-80 VERSION 1.1/GSX80D1.DSK"
-```
+The hardware description both ports follow, and the disks (`CPM/`) and photos (`photos/`) they share.
 
-MAME defaults to full-screen mode. `-window -nomaximize` opens it in a smaller window; drag a window edge to resize it.
-
-At the startup menu, press `4` to reach the `A>` prompt. Pressing the host Backspace key removes the previous character.
-
-## Screenshot
-
-The image below shows the complete CP/M Plus 3.01C startup menu:
-
-![ALS The CP/M Card running in MAME](screenshots/cpm-card-boot.png)
-
-## Hardware model
+### Hardware model
 
 The emulation follows photos of a real board (PCB "DIGITAL RESEARCH / Advanced Logic Systems", 08-83) and `CPM/CPM Card Schematic.pdf` (rev A, 05-04-83).
 
@@ -112,7 +136,7 @@ The card has **no firmware ROM**; everything is loaded from disk by the 6502. Th
 - **Real-time clock**: U1 divides Apple Φ1 by 2^14 (≈62.3 Hz). Z80 /INT = tick pending OR Apple /IRQ (slot pin 30). Interrupt acknowledge clears the tick and puts `$F7` (`RST 30h` in IM 0) on the bus. The 3.01C BIOS clock handler at `$FB94` counts 60 ticks per second, so `DATE` shows a running clock that is about 4% fast, as on the real card.
 - **Z80 clock**: in bank 1 U6 removes one 12 MHz pulse per opcode fetch (M1 = 4.5 T-states, emulated as one extra T-state every second fetch). In bank 0 the divider only runs while Apple Φ0 is high, which is exactly 50% of every Apple cycle, so the Z80 averages 3 MHz (0.5 clock scale; the two crystals are not phase-locked).
 
-## Boot process
+### Boot process
 
 Found by disassembling the CP/M Plus 3.01C boot disk (`CPM.Disk1.DSK`). Another emulator has to reproduce this sequence.
 
@@ -130,6 +154,6 @@ What follows from this:
 - **The Z80 must start at `$0000`**: a Z80 that leaves reset anywhere else (for example taking a stale pending NMI to `$0066`) skips step 3. It then hands the bus to the default slot 4 (`$C400`) and hangs. MAME's Z80 clears a pending NMI on reset, so this cannot happen here. When porting to another Z80 core, check that its reset clears a pending NMI.
 - **The 6502 must stop right after its `$Cn00` write**: one more instruction decrements `$08FF`, and the Z80 hands the bus to the wrong slot.
 
-## Disk images and reference documents
+### Disk images and reference documents
 
 The `CPM/` directory includes CP/M 2.2 and CP/M Plus disks, a ProDOS disk, and reference PDFs for the card. Some disk images and documents may be third-party works; check the applicable rights and licenses before using or distributing them.
