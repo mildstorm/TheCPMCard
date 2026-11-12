@@ -8,7 +8,7 @@ This repository provides the changes needed to add the ALS The CP/M Card to MAME
 
 - `src/devices/bus/a2bus/a2cpmcard.cpp` and `a2cpmcard.h`: the 6 MHz Z80B card, onboard RAM, Apple II memory and DMA access, bank switching, and slot control
 - `src/lib/formats/fdi_dsk.cpp`: a wrapper that reuses MAME's PC-98 FDI format implementation
-- `patches/mame-cpmcard.patch`: adds the card files to MAME's build and registers the card in Apple II slots
+- `patches/mame-cpmcard.patch`: adds the card files to MAME's build, registers the card in Apple II slots, and adds `/IRQ` change notification to the a2bus (`a2bus.cpp/.h`, `bus_irq_w()`)
 - `patches/mame-apple2e-backspace.patch`: fixes Apple IIe Backspace input
 - `CPM/`: CP/M disk images and card reference documents
 - `screenshots/cpm-card-boot.png`: a complete CP/M startup screen with the card installed
@@ -57,6 +57,28 @@ At the startup menu, press `4` to reach the `A>` prompt. Pressing the host Backs
 The image below shows the complete CP/M Plus 3.01C startup menu:
 
 ![ALS The CP/M Card running in MAME](screenshots/cpm-card-boot.png)
+
+## Hardware model
+
+The emulation follows photos of a real board (PCB "DIGITAL RESEARCH / Advanced Logic Systems", 08-83) and `CPM/CPM Card Schematic.pdf` (rev A, 05-04-83).
+
+| Part | Function |
+|------|----------|
+| U15 Z0840006PSC | Z80B, 12 MHz crystal (Y1) / 2 = 6 MHz |
+| U2-U5, U7-U10 M5K4164S-15 | 8 × 64K×1 DRAM = 64K card RAM |
+| U26 Raytheon R29623 (20-pin bipolar PROM) | Z80 → Apple address translation, one entry per 256-byte page |
+| U22 74S113 | 6502/Z80 bus ownership toggle + Z80 clock divider |
+| U6 74LS74 | M1 clock stretch (DRAM timing) |
+| U27 74LS74 | Bank latch + 62 Hz tick flip-flop |
+| U1 4020 | Apple Φ1 / 2^14 ≈ 62 Hz real-time-clock tick |
+
+The card has **no firmware ROM**; everything is loaded from disk by the 6502. The only programmable part is the U26 PROM, which has not been dumped yet.
+
+- **Hand-off**: every write to `$Cnxx` (from the 6502, or from the Z80 through DMA) toggles bus ownership, and the card asserts /DMA while the Z80 owns the bus. The Z80 is never stopped as a whole: /WAIT is asserted only when it accesses Apple memory while the 6502 owns the bus, so it can keep running from card DRAM in parallel with the 6502 (emulated with MAME's restartable memory access). Reads of `$Cnxx` are not decoded (open bus).
+- **Bank latch (U27)**: D0 is latched on every Z80 I/O write; the port address is not decoded. The CP/M 3 BIOS writes `F0` (bank 0) / `FF` (bank 1) to port 00. Z80 I/O reads return D0 = Apple /IRQ, D1-D7 = 1.
+- **Memory map**: in bank 0 (reset state) Z80 `$0000-$EFFF` goes to Apple memory through U26. The table is synthesized as Z80 + `$9000` with the `$Cxxx`/`$Fxxx` pages swapped (Z80 `$0000-$2FFF` → `$9000-$BFFF`, `$3000` → `$F000`, `$4000-$5FFF` → `$D000-$EFFF`, `$6000` → `$C000` I/O, `$7000-$EFFF` → `$0000-$7FFF`). The PROM sees Z80 A15 inverted. In bank 1, `$0000-$EFFF` is card DRAM. `$F000-$FFFF` is card DRAM in both banks.
+- **Real-time clock**: U1 divides Apple Φ1 by 2^14 (≈62.3 Hz). Z80 /INT = tick pending OR Apple /IRQ (slot pin 30). Interrupt acknowledge clears the tick and puts `$F7` (`RST 30h` in IM 0) on the bus. The 3.01C BIOS clock handler at `$FB94` counts 60 ticks per second, so `DATE` shows a running clock that is about 4% fast, as on the real card.
+- **Z80 clock**: in bank 1 U6 removes one 12 MHz pulse per opcode fetch (M1 = 4.5 T-states, emulated as one extra T-state every second fetch). In bank 0 the divider only runs while Apple Φ0 is high, which is exactly 50% of every Apple cycle, so the Z80 averages 3 MHz (0.5 clock scale; the two crystals are not phase-locked).
 
 ## Disk images and reference documents
 
