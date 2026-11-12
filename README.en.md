@@ -39,7 +39,7 @@ See the [MAME compilation guide](https://docs.mamedev.org/initialsetup/compiling
 
 ## Run CP/M
 
-Install the ALS CP/M card in slot 4 or 7 and a 5.25-inch Disk II controller in slot 6. The command below keeps the default slot 6 Disk II controller, puts the CP/M card in slot 4, and mounts the CP/M Plus system disk and GSX-80 D1 disk in the first two drives.
+Install the ALS CP/M card in any free slot and a 5.25-inch Disk II controller in slot 6. The boot code finds the card's slot itself; booting was verified with the card in slots 1, 4, 5 and 7. **Do not fit a Microsoft Z-80 SoftCard at the same time** (see "Boot process" below). The command below keeps the default slot 6 Disk II controller, puts the CP/M card in slot 4, and mounts the CP/M Plus system disk and GSX-80 D1 disk in the first two drives.
 
 Run it from the MAME source directory. This example assumes the MAME and TheCPMCard repositories are sibling directories:
 
@@ -82,6 +82,24 @@ The card has **no firmware ROM**; everything is loaded from disk by the 6502. Th
 - **Memory map**: in bank 0 (reset state) Z80 `$0000-$EFFF` goes to Apple memory through U26. The table is synthesized as Z80 + `$9000` with the `$Cxxx`/`$Fxxx` pages swapped (Z80 `$0000-$2FFF` → `$9000-$BFFF`, `$3000` → `$F000`, `$4000-$5FFF` → `$D000-$EFFF`, `$6000` → `$C000` I/O, `$7000-$EFFF` → `$0000-$7FFF`). The PROM sees Z80 A15 inverted. In bank 1, `$0000-$EFFF` is card DRAM. `$F000-$FFFF` is card DRAM in both banks.
 - **Real-time clock**: U1 divides Apple Φ1 by 2^14 (≈62.3 Hz). Z80 /INT = tick pending OR Apple /IRQ (slot pin 30). Interrupt acknowledge clears the tick and puts `$F7` (`RST 30h` in IM 0) on the bus. The 3.01C BIOS clock handler at `$FB94` counts 60 ticks per second, so `DATE` shows a running clock that is about 4% fast, as on the real card.
 - **Z80 clock**: in bank 1 U6 removes one 12 MHz pulse per opcode fetch (M1 = 4.5 T-states, emulated as one extra T-state every second fetch). In bank 0 the divider only runs while Apple Φ0 is high, which is exactly 50% of every Apple cycle, so the Z80 averages 3 MHz (0.5 clock scale; the two crystals are not phase-locked).
+
+## Boot process
+
+Found by disassembling the CP/M Plus 3.01C boot disk (`CPM.Disk1.DSK`). Another emulator has to reproduce this sequence.
+
+1. The Disk II boot ROM reads the loader on track 0 into `$0800`. `$08FE` = `$00` (found flag) and `$08FF` = `$C7` (slot under test).
+2. The loader (`$092A`) writes `STA $Cn00` for slots 7 down to 1 and checks `$08FE` after each. It decrements the `$Cn00` operand and `$08FF` together. With no ROM, this write is the only way to find the card.
+3. The card that receives the write takes the bus, and its Z80 runs from `$0000` (Apple `$9000`), straight out of reset:
+   - It reads Apple `$E000` (language card), inverts the byte, writes it back and compares. It only continues if language card RAM could not be written.
+   - It reads its slot from `$08FF`, stores it at `$03CA`, and sets `$08FE` = `$FF` to report that it was found.
+   - It writes `$Cn00` to give the bus back to the 6502.
+4. The 6502 sees `$08FE` ≠ 0, jumps to `$0970` and loads CP/M.
+
+What follows from this:
+
+- **No SoftCard alongside**: Microsoft CP/M finds its SoftCard the same way (a write to each slot's `$Cn00`), so each CP/M wakes the other card. With both cards fitted in MAME, Microsoft CP/M hangs.
+- **The Z80 must start at `$0000`**: a Z80 that leaves reset anywhere else (for example taking a stale pending NMI to `$0066`) skips step 3. It then hands the bus to the default slot 4 (`$C400`) and hangs. MAME's Z80 clears a pending NMI on reset, so this cannot happen here. When this card was ported to the STM32F769I-DISCO board emulator ([mildstorm/STM32F769I-DISCO](https://github.com/mildstorm/STM32F769I-DISCO), `applem-core/src/core/cards/cpmcard/`), that Z80 core did not clear it, and about one card switch in two hung this way (fixed there).
+- **The 6502 must stop right after its `$Cn00` write**: one more instruction decrements `$08FF`, and the Z80 hands the bus to the wrong slot.
 
 ## Disk images and reference documents
 
